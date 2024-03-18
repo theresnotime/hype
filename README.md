@@ -1,3 +1,5 @@
+# Development of this fork has moved to [https://codeberg.org/tante/hypebot](https://codeberg.org/tante/hypebot)
+
 ![](./res/hype_header.png)
 
 # hype
