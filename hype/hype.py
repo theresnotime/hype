@@ -31,8 +31,8 @@ class Hype:
         subscribed_instances_list = "\n".join(
             [f"- {instance}" for instance in self.config.subscribed_instances]
         )
-        note = f"{self.config.profile.strip()}\n\n{subscribed_instances_list.strip()}"
-        #note = self.config.profile
+        profile_suffix = "[Posts auto-delete after two weeks]\n[I abide by the nobot tag in bios of the posts I boost]"
+        note = f"{self.config.profile.strip()}\n\n{subscribed_instances_list.strip()}\n\n{profile_suffix}"
         fields = [(key, value) for key, value in self.config.fields.items()]
         self.client.account_update_credentials(
             note=note, bot=True, discoverable=True, fields=fields
@@ -57,10 +57,11 @@ class Hype:
                     )["statuses"]
                     if len(status) > 0:
                         status = status[0]
-                        account_profile = status["account"]["note"]
-                        if "nobot" in account_profile.lower():
+                        account_bio = status["account"]["note"]
+                        # check if account has "nobot" in bio, and skip if it does
+                        if "nobot" in account_bio.lower():
                             self.log.warning(
-                                f"{instance.name}: {counter}/{len(trending_statuses)} Skipping because of 'nobot' in {status["account"]["acct"]}'s profile"
+                                f"{instance.name}: {counter}/{len(trending_statuses)} Skipping because of 'nobot' in {status["account"]["acct"]}'s bio"
                             )
                             continue
                         # check if post comes from a filtered instance
@@ -75,7 +76,7 @@ class Hype:
                         # Boost if not already boosted
                         already_boosted = status["reblogged"]
                         if not already_boosted and not filtered and images_described:
-                            # self.client.status_reblog(status)
+                            self.client.status_reblog(status)
                             # if delay is set, wait for that amount of minutes
                             if self.config.delay:
                                 self.log.info(f"Sleeping for {self.config.delay} seconds after boosting {status.url}")

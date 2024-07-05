@@ -4,3 +4,5 @@ __pycache__
 *.secret
 /secrets
 config-prod.yaml
+config/auth.yaml
+config/config.yaml
