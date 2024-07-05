@@ -28,7 +28,11 @@ class Hype:
 
     def update_profile(self):
         self.log.info("Update bot profile")
-        note = self.config.profile
+        subscribed_instances_list = "\n".join(
+            [f"- {instance}" for instance in self.config.subscribed_instances]
+        )
+        note = f"{self.config.profile.strip()}\n\n{subscribed_instances_list.strip()}"
+        #note = self.config.profile
         fields = [(key, value) for key, value in self.config.fields.items()]
         self.client.account_update_credentials(
             note=note, bot=True, discoverable=True, fields=fields
@@ -53,6 +57,12 @@ class Hype:
                     )["statuses"]
                     if len(status) > 0:
                         status = status[0]
+                        account_profile = status["account"]["note"]
+                        if "nobot" in account_profile.lower():
+                            self.log.warning(
+                                f"{instance.name}: {counter}/{len(trending_statuses)} Skipping because of 'nobot' in {status["account"]["acct"]}'s profile"
+                            )
+                            continue
                         # check if post comes from a filtered instance
                         source_account = status["account"]["acct"].split("@")
                         server = source_account[1]
@@ -65,13 +75,13 @@ class Hype:
                         # Boost if not already boosted
                         already_boosted = status["reblogged"]
                         if not already_boosted and not filtered and images_described:
-                            self.client.status_reblog(status)
+                            # self.client.status_reblog(status)
                             # if delay is set, wait for that amount of minutes
                             if self.config.delay:
                                 self.log.info(f"Sleeping for {self.config.delay} seconds after boosting {status.url}")
                                 time.sleep(self.config.delay)
                         self.log.info(
-                            f"{instance.name}: {counter}/{len(trending_statuses)} {'ignore' if (already_boosted or filtered)  else 'boost'}"
+                            f"{instance.name}: {counter}/{len(trending_statuses)} {'ignore (already boosted/filtered)' if (already_boosted or filtered)  else 'boost'}"
                         )
                     else:
                         self.log.warning(
