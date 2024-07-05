@@ -1,9 +1,9 @@
-import time
-import schedule
 import logging
-from mastodon import Mastodon
-from config import Config
 import os.path
+import schedule
+import time
+from config import Config
+from mastodon import Mastodon
 
 
 class Hype:
@@ -31,8 +31,8 @@ class Hype:
         subscribed_instances_list = "\n".join(
             [f"- {instance}" for instance in self.config.subscribed_instances]
         )
-        profile_suffix = "[Posts auto-delete after two weeks]\n[I abide by the nobot tag in bios of the posts I boost]"
-        note = f"{self.config.profile.strip()}\n\n{subscribed_instances_list.strip()}\n\n{profile_suffix}"
+        profile_suffix = "[Safety]\n- I auto-delete after two weeks\n- I don't boost posts from users who have `nobot` in their bio\n- I don't boost posts from users who are undiscoverable/unindexable"
+        note = f"{self.config.profile.strip()}\n\n[Instance list]\n{subscribed_instances_list.strip()}\n\n{profile_suffix}"
         fields = [(key, value) for key, value in self.config.fields.items()]
         self.client.account_update_credentials(
             note=note, bot=True, discoverable=True, fields=fields
@@ -58,20 +58,40 @@ class Hype:
                     if len(status) > 0:
                         status = status[0]
                         account_bio = status["account"]["note"]
+                        account = status["account"]["acct"]
+                        # check if account is a bot, undiscoverable or unindexable
+                        if (
+                            status["account"]["bot"]
+                            or not status["account"]["discoverable"]
+                            or not status["account"]["indexable"]
+                        ):
+                            self.log.warning(
+                                f"{instance.name}: {counter}/{len(trending_statuses)} Skipping because {account} is a bot/undiscoverable/unindexable"
+                            )
+                            continue
+                        # check if account has a bio
+                        if account_bio is None:
+                            self.log.warning(
+                                f"{instance.name}: {counter}/{len(trending_statuses)} Skipping because {account} seems to have no bio"
+                            )
+                            continue
                         # check if account has "nobot" in bio, and skip if it does
                         if "nobot" in account_bio.lower():
                             self.log.warning(
-                                f"{instance.name}: {counter}/{len(trending_statuses)} Skipping because of 'nobot' in {status["account"]["acct"]}'s bio"
+                                f"{instance.name}: {counter}/{len(trending_statuses)} Skipping because of 'nobot' in {account}'s bio"
                             )
                             continue
                         # check if post comes from a filtered instance
-                        source_account = status["account"]["acct"].split("@")
+                        source_account = account.split("@")
                         server = source_account[1]
                         filtered = server in self.config.filtered_instances
                         # check if attached images have a description/alt text
                         images_described = True
                         for attachment in status.media_attachments:
-                            if attachment.description is None or attachment.description=="":
+                            if (
+                                attachment.description is None
+                                or attachment.description == ""
+                            ):
                                 images_described = False
                         # Boost if not already boosted
                         already_boosted = status["reblogged"]
@@ -79,10 +99,12 @@ class Hype:
                             self.client.status_reblog(status)
                             # if delay is set, wait for that amount of minutes
                             if self.config.delay:
-                                self.log.info(f"Sleeping for {self.config.delay} seconds after boosting {status.url}")
+                                self.log.info(
+                                    f"Sleeping for {self.config.delay} seconds after boosting {status.url}"
+                                )
                                 time.sleep(self.config.delay)
                         self.log.info(
-                            f"{instance.name}: {counter}/{len(trending_statuses)} {'ignore (already boosted/filtered)' if (already_boosted or filtered)  else 'boost'}"
+                            f"{instance.name}: {counter}/{len(trending_statuses)} {'ignore (already boosted/filtered)' if (already_boosted or filtered) else 'boost'}"
                         )
                     else:
                         self.log.warning(

@@ -1,6 +1,8 @@
-from typing import List
-import yaml
 import logging
+import os
+import yaml
+from typing import List
+
 
 class BotAccount:
     server: str
@@ -36,13 +38,28 @@ class Config:
     filtered_instances: List = []
     profile: str = ""
     fields: dict = {}
-    delay: int = 0 # seconds
+    delay: int = 0  # seconds
 
     def __init__(self):
-        # auth file containing login info
-        auth = "/app/config/auth.yaml"
-        # settings file containing subscriptions
-        conf = "/app/config/config.yaml"
+        # Check
+        if os.path.isfile("./config/auth.yaml") is False:
+            # Check if running in docker
+            if os.path.isfile("/app/config/auth.yaml") is False:
+                raise ConfigException("Config files not found.")
+            else:
+                # We'll assume we're running in docker
+                print("Running in docker. Loading config files from /app/config/")
+                # auth file containing login info
+                auth = "/app/config/auth.yaml"
+                # settings file containing subscriptions
+                conf = "/app/config/config.yaml"
+        else:
+            # We'll assume we're running locally
+            print("Running locally. Loading config files from ./config/")
+            # auth file containing login info
+            auth = "./config/auth.yaml"
+            # settings file containing subscriptions
+            conf = "./config/config.yaml"
 
         # only load auth info
         with open(auth, "r") as configfile:
@@ -71,9 +88,7 @@ class Config:
                 self.interval = (
                     config["interval"] if config.get("interval") else self.interval
                 )
-                self.delay = (
-                    config["delay"] if config.get("delay") else self.delay
-                )
+                self.delay = config["delay"] if config.get("delay") else self.delay
                 self.log_level = (
                     config["log_level"] if config.get("log_level") else self.log_level
                 )
